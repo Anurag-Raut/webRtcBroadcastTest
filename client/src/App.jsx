@@ -3,6 +3,7 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import { io } from "socket.io-client";
+import kurento from 'kurento-client';
 
   const socket = io('http://localhost:3000');
 function App() {
@@ -102,7 +103,7 @@ function App() {
           localVideo: video,
           onicecandidate : onIceCandidate
         }
- 
+  
        webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function(error) {
         if(error){
           console.log(error);
@@ -179,7 +180,9 @@ function App() {
 
 function sendMessage(message) {
   console.log(message)
+  message.roomName=document.getElementById('room').value;
   const jsonMessage = message;
+
   
   console.log('Sending message:', jsonMessage);
   // Replace 'io' with your actual socket instance
@@ -190,6 +193,7 @@ function sendMessage(message) {
     <>
      <video autoPlay id='video'  controls></video>
      <video autoPlay id='recVideo' ref={videoRef} controls ></video>
+     <input type="text"  id="room" />
      <button onClick={presenter}> send </button>
      <button onClick={viewer}> receive </button>
      <button onClick={stop}> STOP </button>
