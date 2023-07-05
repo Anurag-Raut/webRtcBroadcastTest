@@ -1,21 +1,65 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import { io } from "socket.io-client";
 
-
+  const socket = io('http://localhost:3000');
 function App() {
-  const socket = io();
-  const videoRef = useRef(null);
-  const videoRecRef = useRef(null);
+
+  var video
   var webRtcPeer;
   var webRtcPeerRec;
+  var videoRec
+  const videoRef=useRef(null);
+
+  useEffect(() => {
+    function onMessage(message) {
+     
+      console.log(message)
+      message=JSON.parse(message);
+
+  console.info('Received message: ' + message.id);
+  var parsedMessage=message
+  switch (parsedMessage.id) {
+  case 'presenterResponse':
+    presenterResponse(parsedMessage);
+    break;
+  case 'viewerResponse':
+    viewerResponse(parsedMessage);
+    break;
+  case 'stopCommunication':
+    dispose();
+    break;
+  case 'iceCandidate':
+    webRtcPeer.addIceCandidate(parsedMessage.candidate)
+    break;
+  default:
+    console.error('Unrecognized message', parsedMessage);
+  }
+    }
+
+  
+
+    socket.on('message',(message)=>{
+
+      onMessage(message)
+}
+)
+   
+
+    return () => {
+      socket.off('connect', onMessage);
+     
+    };
+  }, []);
+
   
   window.onload = function() {
     console.log('gello')
-    videoRef.current = document.getElementById('video');
-    videoRecRef.current = document.getElementById('recVideo');
+    video = document.getElementById('video');
+    videoRec = document.getElementById('recVideo');
+    videoRef.current= document.getElementById('recVideo');
   
     // document.getElementById('call').addEventListener('click', function() { presenter(); } );
     // document.getElementById('viewer').addEventListener('click', function() { viewer(); } );
@@ -27,27 +71,7 @@ function App() {
     socket.close();
   }
   
-  socket.onmessage = function(message) {
-    var parsedMessage = JSON.parse(message.data);
-    console.info('Received message: ' + message.data);
-  
-    switch (parsedMessage.id) {
-    case 'presenterResponse':
-      presenterResponse(parsedMessage);
-      break;
-    case 'viewerResponse':
-      viewerResponse(parsedMessage);
-      break;
-    case 'stopCommunication':
-      dispose();
-      break;
-    case 'iceCandidate':
-      webRtcPeer.addIceCandidate(parsedMessage.candidate)
-      break;
-    default:
-      console.error('Unrecognized message', parsedMessage);
-    }
-  }
+ 
   
   function presenterResponse(message) {
     if (message.response != 'accepted') {
@@ -60,11 +84,13 @@ function App() {
   }
   
   function viewerResponse(message) {
+    console.log('laulu please')
     if (message.response != 'accepted') {
       var errorMsg = message.message ? message.message : 'Unknow error';
       console.warn('Call not accepted for the following reason: ' + errorMsg);
       dispose();
     } else {
+      console.log('done laulu')
       webRtcPeer.processAnswer(message.sdpAnswer);
     }
   }
@@ -73,7 +99,7 @@ function App() {
        
  
        var options = {
-          localVideo: videoRef.current,
+          localVideo: video,
           onicecandidate : onIceCandidate
         }
  
@@ -96,23 +122,24 @@ function App() {
  
     var message = {
        id : 'presenter',
-       sdpOffer : offerSdp
+       sdpOffer : offerSdp,
+     
     };
     sendMessage(message);
  }
  
  function viewer() {
    
-    if(!webRtcPeerRec){
+    if(!webRtcPeer){
 
     
  
        var options = {
-          remoteVideo: videoRecRef.current,
+          remoteVideo: videoRef.current,
           onicecandidate : onIceCandidate
        }
  
-       webRtcPeerRec = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function(error) {
+       webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function(error) {
         if(error){
           console.log(error);
           return;
@@ -131,24 +158,29 @@ function App() {
  
     var message = {
        id : 'viewer',
-       sdpOffer : offerSdp
+       sdpOffer : offerSdp,
+     
     }
+    console.log('message viwer')
     sendMessage(message);
  }
 
  function onIceCandidate(candidate) {
-  console.log('Local candidate:', candidate);
+  // console.log('Local candidate:', candidate);
 
   const message = {
     id: 'onIceCandidate',
     candidate: candidate,
+    
   };
   sendMessage(message);
 }
 
 
 function sendMessage(message) {
-  const jsonMessage = JSON.stringify(message);
+  console.log(message)
+  const jsonMessage = message;
+  
   console.log('Sending message:', jsonMessage);
   // Replace 'io' with your actual socket instance
   socket.send(jsonMessage);
@@ -156,8 +188,8 @@ function sendMessage(message) {
 
   return (
     <>
-     <video autoPlay id='video' ref={videoRef} controls></video>
-     <video  id='recVideo' ref={videoRecRef} controls ></video>
+     <video autoPlay id='video'  controls></video>
+     <video autoPlay id='recVideo' ref={videoRef} controls ></video>
      <button onClick={presenter}> send </button>
      <button onClick={viewer}> receive </button>
      <button onClick={stop}> STOP </button>
