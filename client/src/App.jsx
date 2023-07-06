@@ -3,10 +3,64 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import { io } from "socket.io-client";
-import kurento from 'kurento-client';
+window.sourceId=null;
+var chromeMediaSource = 'screen';
+window.getScreenConstraints=getScreenConstraints;
+function getSourceId(callback) {
+  if (!callback) throw '"callback" parameter is mandatory.';
+  if(sourceId) return callback(sourceId);
+  
+  screenCallback = callback;
+  window.postMessage('get-sourceId', '*');
+}
+
+var isFirefox = typeof window.InstallTrigger !== 'undefined';
+var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+var isChrome = !!window.chrome && !isOpera;
+
+function getScreenConstraints(chromeMediaSourc,callback) {
+  var firefoxScreenConstraints = {
+      mozMediaSource: 'window',
+      mediaSource: 'window'
+  };
+  
+  if(isFirefox) return callback(null, firefoxScreenConstraints);
+
+  // this statement defines getUserMedia constraints
+  // that will be used to capture content of screen
+  var screen_constraints = {
+      mandatory: {
+          chromeMediaSource: chromeMediaSource,
+          maxWidth: screen.width > 1920 ? screen.width : 1920,
+          maxHeight: screen.height > 1080 ? screen.height : 1080
+      },
+      optional: []
+  };
+
+  // this statement verifies chrome extension availability
+  // if installed and available then it will invoke extension API
+  // otherwise it will fallback to command-line based screen capturing API
+  if (chromeMediaSource == 'desktop' && !sourceId) {
+      getSourceId(function() {
+          screen_constraints.mandatory.chromeMediaSourceId = sourceId;
+          callback(sourceId == 'PermissionDeniedError' ? sourceId : null, screen_constraints);
+      });
+      return;
+  }
+
+  // this statement sets gets 'sourceId" and sets "chromeMediaSourceId" 
+  if (chromeMediaSource == 'desktop') {
+      screen_constraints.mandatory.chromeMediaSourceId = sourceId;
+  }
+
+  // now invoking native getUserMedia API
+  callback(null, screen_constraints);
+}
 
   const socket = io('http://localhost:3000');
+
 function App() {
+
 
   var video
   var webRtcPeer;
@@ -95,23 +149,40 @@ function App() {
       webRtcPeer.processAnswer(message.sdpAnswer);
     }
   }
+ 
   function presenter() {
     if (!webRtcPeer) {
-       
+
+      navigator.mediaDevices.getDisplayMedia({ video: true })
+      .then(stream => {
+
+      var constraints = {
+        audio: false,
+        video: true
+      }
+      var options = {
+        localVideo: video,
+        videoStream:stream,
+        sendSource: 'desktop',
+        onicecandidate : onIceCandidate,
+        mediaConstraints: constraints,
+        
+      }
+     
+    
+   
  
-       var options = {
-          localVideo: video,
-          onicecandidate : onIceCandidate
-        }
-  
+      
+        
        webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function(error) {
         if(error){
-          console.log(error);
+          console.error(error);
           return;
         }
  
           this.generateOffer(onOfferPresenter);
        });
+      })
     }
  }
  

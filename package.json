@@ -12,6 +12,7 @@
   "dependencies": {
     "express": "^4.18.2",
     "http": "^0.0.1-security",
+    "kurento-browser-extensions": "^0.0.2",
     "kurento-client": "^7.0.0",
     "kurento-utils": "^7.0.0",
     "minimist": "^1.2.8",
